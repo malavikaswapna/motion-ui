@@ -2,7 +2,7 @@
 
 > *Where your hands become magic wands in the digital realm*
 
-![MotionUI Banner](./motionui-banner.svg)
+
 
 ## 👋 Wave Hello to the Future of Web Interaction
 
