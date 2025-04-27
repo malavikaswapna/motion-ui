@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotionUI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            position: relative;
+        }
+        
+        header {
+            background-color: #333;
+            color: white;
+            padding: 1rem;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .content {
+            display: flex;
+            flex: 1;
+        }
+        
+        .webcam-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            border: 3px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            z-index: 100;
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Mirror the webcam */
+            background-color: #000;
+        }
+        
+        #canvas-output {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            z-index: 101;
+            transform: scaleX(-1); /* Mirror the canvas overlay */
+        }
+        
+        .main-section {
+            flex: 4;
+            padding: 2rem;
+            overflow-y: auto;
+            height: calc(100vh - 80px);
+        }
+        
+        .sidebar {
+            flex: 1;
+            background-color: #ddd;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .nav-item {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background-color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background-color: #4CAF50;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .instructions {
+            background-color: #fff;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .gesture-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .pointer {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .debug-info {
+            position: fixed;
+            bottom: 210px;
+            right: 20px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 240px;
+            z-index: 102;
+        }
+
+        .no-select {
+            user-select: none;
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            padding: 1rem;
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="no-select">MotionUI</h1>
+        </header>
+        
+        <div class="content">
+            <!-- Sidebar Navigation -->
+            <div class="sidebar no-select">
+                <h2>Navigation</h2>
+                <div class="nav-item active" data-page="home">Home</div>
+                <div class="nav-item" data-page="about">About</div>
+                <div class="nav-item" data-page="services">Services</div>
+                <div class="nav-item" data-page="gallery">Gallery</div>
+                <div class="nav-item" data-page="contact">Contact</div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="main-section">
+                <div class="instructions no-select">
+                    <h2>Gesture Controls Guide</h2>
+                    <p><strong>Point:</strong> Use your index finger to point and move the cursor</p>
+                    <p><strong>Select/Click:</strong> Close your hand into a fist briefly</p>
+                    <p><strong>Scroll Down:</strong> Open palm facing down and move down</p>
+                    <p><strong>Scroll Up:</strong> Open palm facing up and move up</p>
+                    <p><strong>Next Page:</strong> Swipe right to left with open hand</p>
+                    <p><strong>Previous Page:</strong> Swipe left to right with open hand</p>
+                </div>
+                
+                <!-- Pages -->
+                <div id="home" class="page active">
+                    <h2>Welcome to Gesture Control</h2>
+                    <p>This interactive website allows you to navigate and interact using only hand gestures detected through your webcam.</p>
+                    <p>No mouse or touchpad needed! Simply use your hands to move around, click buttons, scroll content, and more.</p>
+                    <p>This technology uses MediaPipe and TensorFlow.js to track hand landmarks and recognize gestures in real-time.</p>
+                    <h3>Try It Out</h3>
+                    <p>Look at the small webcam preview in the bottom-right corner. You should see your hand tracked with landmarks and the current gesture displayed.</p>
+                    <p>Experiment with different gestures to navigate through the site. Refer to the Gesture Controls Guide above for help.</p>
+                    <div style="height: 800px;">
+                        <h3>Scroll Testing Area</h3>
+                        <p>This extra space is for testing the scroll functionality. Try using the scroll gesture to move up and down this page.</p>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam auctor, nisl eget ultricies ultricies, nisl nisl ultricies nisl, eget ultricies nisl nisl eget.</p>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam auctor, nisl eget ultricies ultricies, nisl nisl ultricies nisl, eget ultricies nisl nisl eget.</p>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam auctor, nisl eget ultricies ultricies, nisl nisl ultricies nisl, eget ultricies nisl nisl eget.</p>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam auctor, nisl eget ultricies ultricies, nisl nisl ultricies nisl, eget ultricies nisl nisl eget.</p>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam auctor, nisl eget ultricies ultricies, nisl nisl ultricies nisl, eget ultricies nisl nisl eget.</p>
+                        <p>You've scrolled all the way down! Try scrolling back up.</p>
+                    </div>
+                </div>
+                
+                <div id="about" class="page">
+                    <h2>About</h2>
+                    <p>This project demonstrates the power of computer vision and machine learning for creating natural user interfaces.</p>
+                    <p>Hand gesture recognition allows for a touchless interaction model that can be particularly useful in:</p>
+                    <ul>
+                        <li>Public touchscreens (reducing germ spread)</li>
+                        <li>Healthcare settings</li>
+                        <li>Industrial environments where hands may be dirty</li>
+                        <li>Accessibility solutions for people with motor impairments</li>
+                        <li>Virtual and augmented reality applications</li>
+                    </ul>
+                    <p>The system uses MediaPipe Hands for accurate hand landmark detection and custom JavaScript for gesture recognition.</p>
+                </div>
+                
+                <div id="services" class="page">
+                    <h2>Services</h2>
+                    <p>We offer a range of services related to gesture-based interfaces:</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                        <div style="flex: 1; min-width: 200px; background-color: #f0f0f0; padding: 15px; border-radius: 8px;">
+                            <h3>Custom Development</h3>
+                            <p>Tailored gesture control systems for your specific application needs.</p>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; background-color: #f0f0f0; padding: 15px; border-radius: 8px;">
+                            <h3>Integration</h3>
+                            <p>Adding gesture controls to your existing software and interfaces.</p>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; background-color: #f0f0f0; padding: 15px; border-radius: 8px;">
+                            <h3>Training</h3>
+                            <p>Learn how to implement and customize gesture-based interfaces.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="gallery" class="page">
+                    <h2>Gallery</h2>
+                    <p>Sample projects and demonstrations of gesture control in action:</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 1</div>
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 2</div>
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 3</div>
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 4</div>
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 5</div>
+                        <div style="height: 150px; background-color: #ddd; border-radius: 8px; display: flex; justify-content: center; align-items: center;">Gallery Item 6</div>
+                    </div>
+                </div>
+                
+                <div id="contact" class="page">
+                    <h2>Contact Us</h2>
+                    <p>Interested in implementing gesture controls in your project? Get in touch!</p>
+                    <form id="contact-form">
+                        <div style="margin-bottom: 15px;">
+                            <label for="name" style="display: block; margin-bottom: 5px;">Name:</label>
+                            <input type="text" id="name" name="name" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label for="email" style="display: block; margin-bottom: 5px;">Email:</label>
+                            <input type="email" id="email" name="email" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label for="message" style="display: block; margin-bottom: 5px;">Message:</label>
+                            <textarea id="message" name="message" rows="5" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;"></textarea>
+                        </div>
+                        <button type="submit" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="no-select">
+            <p>Gesture-Controlled Interface Demo - Created with MediaPipe and TensorFlow.js</p>
+        </footer>
+    </div>
+    
+    <!-- Webcam Video -->
+    <div class="webcam-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="canvas-output"></canvas>
+    </div>
+    
+    <!-- Virtual Cursor -->
+    <div class="pointer" id="virtual-cursor"></div>
+    
+    <!-- Gesture Indicator -->
+    <div class="gesture-indicator no-select" id="gesture-display">Waiting for webcam...</div>
+    
+    <!-- Debug Information -->
+    <div class="debug-info no-select" id="debug-info">Initializing...</div>
+    
+    <!-- Load MediaPipe and TensorFlow.js libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const videoElement = document.getElementById('webcam');
+            const canvasElement = document.getElementById('canvas-output');
+            const canvasCtx = canvasElement.getContext('2d');
+            const gestureDisplay = document.getElementById('gesture-display');
+            const debugInfo = document.getElementById('debug-info');
+            const virtualCursor = document.getElementById('virtual-cursor');
+            const mainSection = document.querySelector('.main-section');
+            const navItems = document.querySelectorAll('.nav-item');
+            const pages = document.querySelectorAll('.page');
+            
+            // State variables
+            let currentPage = 'home';
+            let handLandmarks = null;
+            let lastGesture = 'none';
+            let lastGestureTime = 0;
+            let gestureCooldown = 500; // ms
+            let scrollSpeed = 10;
+            let virtualMouseX = window.innerWidth / 2;
+            let virtualMouseY = window.innerHeight / 2;
+            let isPointingMode = false;
+            let lastPinchState = false;
+            let isClickGesture = false;
+            let clickCooldown = false;
+            let lastScrollPosition = { x: 0, y: 0 };
+            let gestureHistory = [];
+            const historyLength = 10; // Number of frames to keep for smoothing
+            
+            // Initialize hand tracking
+            const hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            
+            hands.onResults(onResults);
+            
+            // Start camera
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480
+            });
+            
+            // Start the webcam
+            camera.start()
+                .then(() => {
+                    console.log("Camera started successfully");
+                    gestureDisplay.textContent = "Camera active - Show your hand";
+                    // Set canvas dimensions to match video
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+                })
+                .catch(err => {
+                    console.error("Error starting camera: ", err);
+                    gestureDisplay.textContent = "Error: Could not access webcam";
+                    debugInfo.textContent = `Camera error: ${err.message}. Please ensure you've granted camera permissions.`;
+                });
+            
+            // Process landmarks and detect gestures
+            function onResults(results) {
+                // Clear the canvas
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                
+                // Update debug info
+                debugInfo.textContent = `Hand detected: ${results.multiHandLandmarks.length > 0 ? 'Yes' : 'No'}`;
+                
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    // Store the current hand landmarks
+                    handLandmarks = results.multiHandLandmarks[0];
+                    
+                    // Draw hand landmarks
+                    drawConnectors(canvasCtx, handLandmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 2 });
+                    drawLandmarks(canvasCtx, handLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 });
+                    
+                    // Process gestures
+                    processGesture(handLandmarks);
+                } else {
+                    handLandmarks = null;
+                    gestureDisplay.textContent = "No hand detected";
+                    hideVirtualCursor();
+                }
+            }
+            
+            function processGesture(landmarks) {
+                const gesture = detectGesture(landmarks);
+                
+                // Add gesture to history for smoothing
+                gestureHistory.push(gesture);
+                if (gestureHistory.length > historyLength) {
+                    gestureHistory.shift();
+                }
+                
+                // Use the most common gesture in history to reduce jitter
+                const smoothedGesture = getMostCommonGesture(gestureHistory);
+                
+                // Update the display with current gesture name
+                gestureDisplay.textContent = `Gesture: ${smoothedGesture}`;
+                
+                // Handle different gestures
+                switch (smoothedGesture) {
+                    case 'point':
+                        handlePointGesture(landmarks);
+                        break;
+                    case 'click':
+                        handleClickGesture();
+                        break;
+                    case 'scroll-up':
+                        handleScrollGesture(-1);
+                        break;
+                    case 'scroll-down':
+                        handleScrollGesture(1);
+                        break;
+                    case 'swipe-left':
+                        handleSwipeGesture('left');
+                        break;
+                    case 'swipe-right':
+                        handleSwipeGesture('right');
+                        break;
+                    default:
+                        // No recognized gesture or 'idle'
+                        if (isPointingMode) {
+                            hideVirtualCursor();
+                            isPointingMode = false;
+                        }
+                }
+                
+                lastGesture = smoothedGesture;
+            }
+            
+            function detectGesture(landmarks) {
+                if (!landmarks) return 'none';
+                
+                // Extract key points
+                const wrist = landmarks[0];
+                const thumbTip = landmarks[4];
+                const indexTip = landmarks[8];
+                const middleTip = landmarks[12];
+                const ringTip = landmarks[16];
+                const pinkyTip = landmarks[20];
+                
+                // Calculate distances for gesture detection
+                const thumbIndexDistance = calculateDistance(thumbTip, indexTip);
+                
+                // Pointing gesture - Index finger extended, other fingers closed
+                const indexMcpToTip = calculateDistance(landmarks[5], indexTip);
+                const middleMcpToTip = calculateDistance(landmarks[9], middleTip);
+                const ringMcpToTip = calculateDistance(landmarks[13], ringTip);
+                const pinkyMcpToTip = calculateDistance(landmarks[17], pinkyTip);
+                
+                // Check if index is extended but others are curled
+                if (indexMcpToTip > 0.1 && 
+                    middleMcpToTip < 0.07 && 
+                    ringMcpToTip < 0.07 && 
+                    pinkyMcpToTip < 0.07) {
+                    return 'point';
+                }
+                
+                // Click gesture - All fingers curled into a fist
+                if (indexMcpToTip < 0.06 && 
+                    middleMcpToTip < 0.06 && 
+                    ringMcpToTip < 0.06 && 
+                    pinkyMcpToTip < 0.06) {
+                    return 'click';
+                }
+                
+                // Check for palm-based gestures
+                // All fingers extended
+                if (indexMcpToTip > 0.08 && 
+                    middleMcpToTip > 0.08 && 
+                    ringMcpToTip > 0.08 && 
+                    pinkyMcpToTip > 0.08) {
+                    
+                    // Check for vertical movement (scrolling)
+                    const verticalDirection = calculateVerticalDirection(landmarks);
+                    
+                    // Check for horizontal movement (swiping)
+                    const horizontalDirection = calculateHorizontalDirection(landmarks);
+                    
+                    if (Math.abs(verticalDirection) > Math.abs(horizontalDirection) * 1.5) {
+                        // Predominantly vertical motion
+                        if (verticalDirection > 0.03) {
+                            return 'scroll-down';
+                        } else if (verticalDirection < -0.03) {
+                            return 'scroll-up';
+                        }
+                    } else if (Math.abs(horizontalDirection) > Math.abs(verticalDirection) * 1.5) {
+                        // Predominantly horizontal motion
+                        if (horizontalDirection > 0.05) {
+                            return 'swipe-right';
+                        } else if (horizontalDirection < -0.05) {
+                            return 'swipe-left';
+                        }
+                    }
+                    
+                    // Open hand but not moving significantly
+                    return 'open-hand';
+                }
+                
+                // Default - no recognized gesture
+                return 'idle';
+            }
+            
+            // Helper functions
+            function calculateDistance(p1, p2) {
+                return Math.sqrt(
+                    Math.pow(p2.x - p1.x, 2) + 
+                    Math.pow(p2.y - p1.y, 2) + 
+                    Math.pow(p2.z - p1.z, 2)
+                );
+            }
+            
+            // Get the most common gesture in history (for smoothing)
+            function getMostCommonGesture(history) {
+                const gestureCounts = {};
+                let maxCount = 0;
+                let mostCommonGesture = 'none';
+                
+                for (const gesture of history) {
+                    gestureCounts[gesture] = (gestureCounts[gesture] || 0) + 1;
+                    if (gestureCounts[gesture] > maxCount) {
+                        maxCount = gestureCounts[gesture];
+                        mostCommonGesture = gesture;
+                    }
+                }
+                
+                return mostCommonGesture;
+            }
+            
+            // Calculate vertical movement of hand
+            function calculateVerticalDirection(landmarks) {
+                // Using the palm and middle finger base to determine hand orientation
+                const palmCenter = landmarks[0];
+                const middleBase = landmarks[9];
+                
+                // Return positive for downward movement, negative for upward
+                return palmCenter.y - middleBase.y;
+            }
+            
+            // Calculate horizontal movement of hand
+            function calculateHorizontalDirection(landmarks) {
+                // Using the palm and index finger base to determine hand orientation
+                const palmCenter = landmarks[0];
+                const indexBase = landmarks[5];
+                
+                // Return positive for rightward movement, negative for leftward
+                return palmCenter.x - indexBase.x;
+            }
+            
+            // Handle pointing gesture
+            function handlePointGesture(landmarks) {
+                if (!landmarks) return;
+                
+                // Use index finger tip as the cursor position
+                const indexTip = landmarks[8];
+                
+                // Map from video coordinates to screen coordinates (with mirroring)
+                const videoWidth = videoElement.videoWidth;
+                const videoHeight = videoElement.videoHeight;
+                
+                // Apply some smoothing to reduce jitter
+                virtualMouseX = lerp(virtualMouseX, (1 - indexTip.x) * window.innerWidth, 0.3);
+                virtualMouseY = lerp(virtualMouseY, indexTip.y * window.innerHeight, 0.3);
+                
+                // Update virtual cursor position
+                showVirtualCursor(virtualMouseX, virtualMouseY);
+                
+                // Update debug info
+                debugInfo.textContent = `Cursor: ${Math.round(virtualMouseX)}, ${Math.round(virtualMouseY)}`;
+                
+                isPointingMode = true;
+            }
+            
+            // Handle click gesture
+            function handleClickGesture() {
+                if (clickCooldown) return;
+                
+                // Find element at cursor position
+                const elementAtPoint = document.elementFromPoint(virtualMouseX, virtualMouseY);
+                if (elementAtPoint) {
+                    // Flash the cursor to indicate a click
+                    virtualCursor.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+                    setTimeout(() => {
+                        virtualCursor.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+                    }, 200);
+                    
+                    // Trigger a click event
+                    elementAtPoint.click();
+                    
+                    // Debug info
+                    debugInfo.textContent = `Clicked: ${elementAtPoint.tagName} ${elementAtPoint.id || ''}`;
+                }
+                
+                // Set cooldown to prevent multiple clicks
+                clickCooldown = true;
+                setTimeout(() => {
+                    clickCooldown = false;
+                }, 1000);
+            }
+            
+            // Handle scroll gesture
+            function handleScrollGesture(direction) {
+                const now = Date.now();
+                if (now - lastGestureTime < gestureCooldown) return;
+                
+                // Scroll the main content area
+                mainSection.scrollBy({
+                    top: direction * scrollSpeed,
+                    behavior: 'auto'
+                });
+                
+                lastGestureTime = now;
+                debugInfo.textContent = `Scrolling: ${direction > 0 ? 'Down' : 'Up'}`;
+            }
+            
+            // Handle swipe gesture
+            function handleSwipeGesture(direction) {
+                const now = Date.now();
+                if (now - lastGestureTime < gestureCooldown * 2) return;
+                
+                // Find current page index
+                let currentIndex = 0;
+                navItems.forEach((item, index) => {
+                    if (item.classList.contains('active')) {
+                        currentIndex = index;
+                    }
+                });
+                
+                // Calculate new page index based on swipe direction
+                let newIndex;
+                if (direction === 'left') {  // Next page
+                    newIndex = (currentIndex + 1) % navItems.length;
+                } else { // Previous page
+                    newIndex = (currentIndex - 1 + navItems.length) % navItems.length;
+                }
+                
+                // Navigate to the new page
+                navigateToPage(navItems[newIndex].dataset.page);
+                
+                lastGestureTime = now;
+                debugInfo.textContent = `Navigated: ${direction}`;
+            }
+            
+            // Show virtual cursor at specified position
+            function showVirtualCursor(x, y) {
+                virtualCursor.style.display = 'block';
+                virtualCursor.style.left = `${x}px`;
+                virtualCursor.style.top = `${y}px`;
+            }
+            
+            // Hide virtual cursor
+            function hideVirtualCursor() {
+                virtualCursor.style.display = 'none';
+            }
+            
+            // Linear interpolation helper function
+            function lerp(start, end, amount) {
+                return (1 - amount) * start + amount * end;
+            }
+            
+            // Navigation functions
+            function navigateToPage(pageId) {
+                // Update active nav item
+                navItems.forEach(item => {
+                    if (item.dataset.page === pageId) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+                
+                // Update active page
+                pages.forEach(page => {
+                    if (page.id === pageId) {
+                        page.classList.add('active');
+                    } else {
+                        page.classList.remove('active');
+                    }
+                });
+                
+                currentPage = pageId;
+            }
+            
+            // Set up navigation event listeners (for mouse fallback)
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navigateToPage(item.dataset.page);
+                });
+            });
+            
+            // Handle contact form submission
+            const contactForm = document.getElementById('contact-form');
+            if (contactForm) {
+                contactForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(contactForm);
+                    const formValues = Object.fromEntries(formData.entries());
+                    
+                    // In a real application, you would send this data to a server
+                    console.log('Form submitted:', formValues);
+                    
+                    // Show a success message
+                    contactForm.innerHTML = '<div style="padding: 20px; background-color: #dff0d8; border-radius: 4px; color: #3c763d;"><h3>Message Sent!</h3><p>Thank you for your message. We will get back to you soon.</p></div>';
+                });
+            }
+            
+            // Add keyboard fallback for testing/accessibility
+            document.addEventListener('keydown', function(e) {
+                switch(e.key) {
+                    case 'ArrowRight':
+                        handleSwipeGesture('left'); // Next page
+                        break;
+                    case 'ArrowLeft':
+                        handleSwipeGesture('right'); // Previous page
+                        break;
+                        case 'ArrowUp':
+                        handleScrollGesture(-1); // Scroll up
+                        break;
+                    case 'ArrowDown':
+                        handleScrollGesture(1); // Scroll down
+                        break;
+                    case 'Enter':
+                        if (isPointingMode) {
+                            handleClickGesture();
+                        }
+                        break;
+                }
+            });
+            
+            // Handle resize events
+            window.addEventListener('resize', function() {
+                // Adjust canvas size if needed
+                if (videoElement.videoWidth > 0) {
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+                }
+            });
+            
+            // Setup error handling
+            window.addEventListener('error', function(e) {
+                debugInfo.textContent = `Error: ${e.message}`;
+                console.error('Application error:', e);
+            });
+            
+            // Initialize pointer position in the middle of the screen
+            virtualMouseX = window.innerWidth / 2;
+            virtualMouseY = window.innerHeight / 2;
+            
+            // Initial setup
+            gestureDisplay.textContent = "Initializing webcam...";
+            debugInfo.textContent = "Waiting for camera permission...";
+        });
+        
+        // Add info about fallback controls
+        document.addEventListener('DOMContentLoaded', function() {
+            const instructions = document.querySelector('.instructions');
+            if (instructions) {
+                const fallbackInfo = document.createElement('div');
+                fallbackInfo.innerHTML = `
+                    <h3>Keyboard Fallback Controls</h3>
+                    <p><strong>Arrow Keys:</strong> Navigation and scrolling</p>
+                    <p><strong>Arrow Left/Right:</strong> Previous/Next page</p>
+                    <p><strong>Arrow Up/Down:</strong> Scroll up/down</p>
+                    <p><strong>Enter:</strong> Click at cursor position</p>
+                `;
+                instructions.appendChild(fallbackInfo);
+            }
+        });
+    </script>
+</body>
+</html>
